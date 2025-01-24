@@ -6,10 +6,12 @@ import radio
 import machine
 import random
 
+radio.config(channel=11, address=0xDEADBEEF, length=100, power=5)
 my_id = hash(machine.unique_id())
 who_starts = None
 
 microbit.i2c.init(freq=100_000)
+microbit.set_volume(10)
 
 CONNECTING_START = 0
 CONNECTING_HELLO1 = 1
@@ -20,8 +22,9 @@ def find_partner() -> int:
     connecting_state = CONNECTING_START
     their_id = -1
     last_msg_time = time.ticks_ms()
+    wait = random.randint(900,1100)
     while True:
-        for img in Image.ALL_CLOCKS:
+        for index, img in enumerate(Image.ALL_CLOCKS):
             display.show(img)
             msg = radio.receive()
             if msg:
@@ -29,30 +32,30 @@ def find_partner() -> int:
                     _, their_id = msg.split(";")
                     last_msg_time = time.ticks_ms()
                     if int(their_id) > int(my_id):
-                        display.scroll(their_id, delay=10)
+                        #display.scroll(their_id, delay=10)
                         who_starts = bool(random.getrandbits(1))
-                        radio.send("hello2;{};{};{}".format(their_id,my_id,who_starts))
+                        radio.send("hello2;{};{};{}".format(their_id,my_id,int(who_starts)))
                         connecting_state = CONNECTING_ACK
                     else:
-                        display.scroll(my_id, delay=10)
+                        #display.scroll(my_id, delay=10)
                         connecting_state = CONNECTING_HELLO1
                 if connecting_state == CONNECTING_HELLO1 and msg.startswith("hello2"):
                     _, my_id2, their_id2, who_starts2 = msg.split(";")
                     if their_id2 == their_id and int(my_id2) == my_id:
-                        who_starts = not bool(who_starts2)
+                        who_starts = not bool(int(who_starts2))
                         radio.send("ACK;{}".format(my_id))
                         return int(their_id)
                 if connecting_state == CONNECTING_ACK and msg.startswith("ACK"):
                     _, their_id2 = msg.split(";")
                     if their_id2 == their_id:
                         return int(my_id)
-                if connecting_state != CONNECTING_START and time.ticks_diff(time.ticks_ms(), last_msg_time) > 2000:
+                if connecting_state != CONNECTING_START and time.ticks_diff(time.ticks_ms(), last_msg_time) > wait:
                     connecting_state = CONNECTING_START
+                    wait = random.randint(500,1500)
 
-            microbit.sleep(50)
-        radio.send("hello1;{}".format(my_id))
-
-microbit.set_volume(10)
+            microbit.sleep(random.randint(40,60))
+            if index % 3 == 0:
+                radio.send("hello1;{}".format(my_id))
 
 def i2c_write_data(data):
     i2c.write(0x3C, bytearray([0x40]) + data)
@@ -310,10 +313,9 @@ for count, shipLength in enumerate(availableShips):
             draw_placement(shipLength)
 
 ### Find a partner
-radio.config(channel=11, address=0xDEADBEEF, length=200, power=5)
 radio.on()
-their_id = find_partner()
-radio.config(channel=11, address=0xDEADBEEF, group=their_id%255, length=40, queue=10, power=7)
+group_id = find_partner()
+radio.config(channel=15, address=0xDEADBEEF, group=group_id%255, length=40, queue=10, power=7)
 
 ### Gameplay loop
 ship_count = len(availableShips)
@@ -390,6 +392,7 @@ def shoot_loop():
 def get_shot_loop():
     global mode, ship_count, pos
     msg = radio.receive()
+    display.show(Image.ARROW_E)
     if msg and msg.startswith("shoot"):
         _, x, y = msg.split(";")
         microbit.sleep(50)
@@ -422,4 +425,3 @@ while True:
     else:
         get_shot_loop()
     
-
