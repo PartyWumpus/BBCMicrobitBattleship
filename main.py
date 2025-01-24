@@ -44,11 +44,11 @@ def find_partner() -> int:
                     if their_id2 == their_id and int(my_id2) == my_id:
                         who_starts = not bool(int(who_starts2))
                         radio.send("ACK;{}".format(my_id))
-                        return int(their_id)
+                        return int(their_id) ^ int(my_id)
                 if connecting_state == CONNECTING_ACK and msg.startswith("ACK"):
                     _, their_id2 = msg.split(";")
                     if their_id2 == their_id:
-                        return int(my_id)
+                        return int(their_id) ^ my_id
                 if connecting_state != CONNECTING_START and time.ticks_diff(time.ticks_ms(), last_msg_time) > wait:
                     connecting_state = CONNECTING_START
                     wait = random.randint(500,1500)
@@ -72,7 +72,6 @@ def clear_display():
     for page in range(8):
         set_pos(0, page)
         i2c_write_data(bytearray(128))
-
 
 # cast the magic spell
 cmds = [
@@ -146,6 +145,8 @@ def draw_ship(buf, x, y, ship):
         image = ImageShipHorizRight
     elif ship == SHIP_DEAD:
         image = ImageShipDead
+    elif ship == SHIP_MISS:
+        image = ImageCursorB
     
     blit_square(buf, x, y, image)
 
@@ -225,6 +226,7 @@ SHIP_HORIZ_LEFT = 3
 SHIP_HORIZ_MIDDLE = 4
 SHIP_HORIZ_END = 5
 SHIP_DEAD = 6
+SHIP_MISS = 7
 
 ships: "list[list[int | None]]" = []
 for i in range(10):
@@ -349,6 +351,7 @@ def shoot_loop():
         if guesses[pos[0]][pos[1]] == None:
             display.show(Image.PACMAN)
             radio.send("shoot;{};{}".format(pos[0],pos[1]))
+            radio.send("shoot;{};{}".format(pos[0],pos[1]))
             while True:
                 msg = radio.receive()
                 if msg:
@@ -398,6 +401,7 @@ def get_shot_loop():
         microbit.sleep(50)
         if ships[int(y)][int(x)] != None:
             radio.send("hit")
+            radio.send("hit")
             ships[int(y)][int(x)] = SHIP_DEAD
             display.show(Image.SAD)
             ship_count -= 1
@@ -411,6 +415,8 @@ def get_shot_loop():
                 return
         else:
             radio.send("miss")
+            radio.send("miss")
+            ships[int(y)][int(x)] = SHIP_MISS
             display.show(Image.HAPPY)
         draw_get_shot()
         microbit.sleep(600)
