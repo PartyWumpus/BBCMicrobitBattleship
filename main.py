@@ -4,15 +4,53 @@ from microbit import i2c, display, Image
 import time
 import radio
 import machine
-import music
+import random
 
-ID = 1
+my_id = hash(machine.unique_id())
+who_starts = None
 
-display.scroll(str(machine.unique_id()), wait=False)
-
-radio.config(channel=11, address=0xDEADBEEF)
-radio.on()
 microbit.i2c.init(freq=100_000)
+
+CONNECTING_START = 0
+CONNECTING_HELLO1 = 1
+CONNECTING_ACK = 2
+
+def find_partner() -> int:
+    global who_starts
+    connecting_state = CONNECTING_START
+    their_id = -1
+    last_msg_time = time.ticks_ms()
+    while True:
+        for img in Image.ALL_CLOCKS:
+            display.show(img)
+            msg = radio.receive()
+            if msg:
+                if connecting_state == CONNECTING_START and msg.startswith("hello1"):
+                    _, their_id = msg.split(";")
+                    last_msg_time = time.ticks_ms()
+                    if int(their_id) > int(my_id):
+                        display.scroll(their_id, delay=10)
+                        who_starts = bool(random.getrandbits(1))
+                        radio.send("hello2;{};{};{}".format(their_id,my_id,who_starts))
+                        connecting_state = CONNECTING_ACK
+                    else:
+                        display.scroll(my_id, delay=10)
+                        connecting_state = CONNECTING_HELLO1
+                if connecting_state == CONNECTING_HELLO1 and msg.startswith("hello2"):
+                    _, my_id2, their_id2, who_starts2 = msg.split(";")
+                    if their_id2 == their_id and int(my_id2) == my_id:
+                        who_starts = not bool(who_starts2)
+                        radio.send("ACK;{}".format(my_id))
+                        return int(their_id)
+                if connecting_state == CONNECTING_ACK and msg.startswith("ACK"):
+                    _, their_id2 = msg.split(";")
+                    if their_id2 == their_id:
+                        return int(my_id)
+                if connecting_state != CONNECTING_START and time.ticks_diff(time.ticks_ms(), last_msg_time) > 2000:
+                    connecting_state = CONNECTING_START
+
+            microbit.sleep(50)
+        radio.send("hello1;{}".format(my_id))
 
 microbit.set_volume(10)
 
@@ -31,6 +69,7 @@ def clear_display():
     for page in range(8):
         set_pos(0, page)
         i2c_write_data(bytearray(128))
+
 
 # cast the magic spell
 cmds = [
@@ -270,6 +309,11 @@ for count, shipLength in enumerate(availableShips):
             isVirt = not isVirt
             draw_placement(shipLength)
 
+### Find a partner
+radio.config(channel=11, address=0xDEADBEEF, length=200, power=5)
+radio.on()
+their_id = find_partner()
+radio.config(channel=11, address=0xDEADBEEF, group=their_id%255, length=40, queue=10, power=7)
 
 ### Gameplay loop
 ship_count = len(availableShips)
@@ -279,23 +323,23 @@ for i in range(10):
 
 MODE_SHOOT = 0
 MODE_GET_SHOT = 1
-if ID == 0:
+if who_starts:
     mode = MODE_SHOOT
     draw_shoot()
-    display.scroll("you are attacking", delay=40, wait=False)
+    display.show(Image.SWORD)
 else:
     mode = MODE_GET_SHOT
     draw_get_shot()
-    display.scroll("you are defending", delay=40, wait=False)
+    display.show(Image.SKULL)
 
 lastA, lastB = None, None
 
 def shoot_loop():
     global lastA, lastB, mode, pos, ship_count
     now = time.ticks_ms()
-    if microbit.button_a.was_pressed():
+    if microbit.button_a.is_pressed():
         lastA = now
-    if microbit.button_b.was_pressed():
+    if microbit.button_b.is_pressed():
         lastB = now
 
     if lastA != None and lastB != None:
@@ -323,7 +367,7 @@ def shoot_loop():
 
                     if msg == "hit" or msg == "miss":
                         draw_shoot()
-                        microbit.sleep(500)
+                        microbit.sleep(700)
                         display.clear()
                         draw_get_shot()
                         mode = MODE_GET_SHOT
@@ -348,7 +392,9 @@ def get_shot_loop():
     msg = radio.receive()
     if msg and msg.startswith("shoot"):
         _, x, y = msg.split(";")
+        microbit.sleep(50)
         if ships[int(y)][int(x)] != None:
+            radio.send("hit")
             ships[int(y)][int(x)] = SHIP_DEAD
             display.show(Image.SAD)
             ship_count -= 1
@@ -360,15 +406,13 @@ def get_shot_loop():
                 microbit.sleep(600)
                 microbit.reset()
                 return
-            else:
-                radio.send("hit")
         else:
             radio.send("miss")
             display.show(Image.HAPPY)
         draw_get_shot()
         microbit.sleep(600)
         microbit.display.clear()
-        pos = (0,0)
+        pos = (4,4)
         draw_shoot()
         mode = MODE_SHOOT
 
@@ -378,5 +422,4 @@ while True:
     else:
         get_shot_loop()
     
-
 
