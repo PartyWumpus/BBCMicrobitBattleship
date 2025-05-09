@@ -5,6 +5,8 @@ Has custom handshake protocol which randomly picks which of the two players shou
 
 Code quality is slightly poor as this was just sort of thrown together.
 
+![image](https://github.com/user-attachments/assets/5fcff166-23ce-4417-8545-c18e0e26c6f4)
+
 ### Gameplay
 ![clip of gameplay loop](docs/gameplay.mp4)
 
