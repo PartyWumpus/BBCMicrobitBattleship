@@ -265,7 +265,8 @@ def draw_placement(shipLength):
     i2c_write_data(buf)
 
 ### Setup loop
-### KNOWN BUG: ROTATING NEAR BORDER IS FUNKY!
+### bug: rotating near edge can cause crashes from oob access
+### bug: ships can be stacked
 for count, shipLength in enumerate(availableShips):
     pos = (0,0)
     isVirt = True
