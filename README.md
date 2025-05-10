@@ -8,12 +8,14 @@ Code quality is slightly poor as this was just sort of thrown together.
 ![image](https://github.com/user-attachments/assets/5fcff166-23ce-4417-8545-c18e0e26c6f4)
 
 ### Gameplay
-![clip of gameplay loop](docs/gameplay.mp4)
+
+https://github.com/user-attachments/assets/18fd31db-6b2d-4bc8-b1b6-bb018476091a
 
 ### Game setup
-![clip of game setup](docs/boardsetup.mp4)
+
+https://github.com/user-attachments/assets/afc1be6f-930f-415b-99bf-11fe008b5fed
 
 ### Handshake
 Repeatedly randomly deciding between the pair which is player A and which is player B
 
-![clip of repeated handshake](docs/repeated_negotiation.mp4)
+https://github.com/user-attachments/assets/3eef9565-4e1e-4e81-9413-5394f36f175b
